@@ -5,21 +5,34 @@ Calculates total workout minutes in the CSV file using a basic for loop
 Handles errors when the CSV file is missing or corrupted
 Provides clear error messages to users
 */
-
 const fs = require('fs');
+const path = require('path');
 const csv = require('csv-parser');
-let totalWorkouts = 0;
-let totalMinutes = 0;
-fs.createReadStream('workoutData.csv')
-    .pipe(csv())
-    .on('data', (row) => {
+
+function workoutCalculator(filePath = path.join(__dirname, 'data', 'workouts.csv')) {
+  return new Promise((resolve, reject) => {
+    let totalWorkouts = 0;
+    let totalMinutes = 0;
+
+    if (!fs.existsSync(filePath)) {
+      return reject(new Error(`File not found: ${filePath}`));
+    }
+
+    fs.createReadStream(filePath)
+      .pipe(csv())
+      .on('data', (row) => {
         totalWorkouts++;
-        totalMinutes += parseInt(row.minutes, 10);
-    })
-    .on('end', () => {
-        console.log('Total workouts:', totalWorkouts);
-        console.log('Total workout minutes:', totalMinutes);
-    })
-    .on('error', (err) => {
-        console.error('Error reading workout data:', err);
-    });
+        const raw = row.duration ?? row.minutes ?? row.duration_minutes ?? '';
+        const mins = parseFloat(String(raw).trim());
+        if (!Number.isNaN(mins)) totalMinutes += mins;
+      })
+      .on('end', () => {
+        resolve({ totalWorkouts, totalMinutes });
+      })
+      .on('error', (err) => {
+        reject(err);
+      });
+  });
+}
+
+module.exports = { workoutCalculator };
